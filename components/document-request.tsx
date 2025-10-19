@@ -191,10 +191,6 @@ const documentTypes = [
             {isStaff ? "Process and manage document requests" : "Request and track your barangay documents"}
           </p>
         </div>
-        <Button className="flex items-center space-x-2">
-          <Plus className="h-4 w-4" />
-          <span>{isStaff ? "Manual Processing" : "New Request"}</span>
-        </Button>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -288,9 +284,6 @@ const documentTypes = [
                     </div>
 
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
                       {request.qrCode && (
                         <Button variant="outline" size="sm" className="flex items-center space-x-1 bg-transparent" onClick={() => downloadQr(request.rawId)}>
                           <QrCode className="h-3 w-3" />
@@ -357,7 +350,6 @@ const documentTypes = [
                     </div>
 
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">View Details</Button>
                       {(request.status||"").toLowerCase().includes("processing") && (
                         <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
                       )}
@@ -426,7 +418,6 @@ const documentTypes = [
                     </div>
 
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">View Details</Button>
                       {(request.status||"").toLowerCase().includes("processing") && (
                         <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
                       )}
@@ -495,7 +486,6 @@ const documentTypes = [
                     </div>
 
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">View Details</Button>
                       {(request.status||"").toLowerCase().includes("processing") && (
                         <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
                       )}

@@ -324,10 +324,6 @@ export default function AnnouncementsPage() {
                     <div className="text-sm text-gray-500">
                       Posted by Barangay Administration
                     </div>
-                    <Button variant="outline" size="sm">
-                      View Details
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>

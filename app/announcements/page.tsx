@@ -10,6 +10,8 @@ import { Bell, Calendar, MapPin, Search, Filter, ChevronRight, Users, Clock, Ale
 import Link from "next/link"
 import { apiFetch } from "@/lib/api"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001"
+
 export default function AnnouncementsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterCategory, setFilterCategory] = useState("all")
@@ -86,7 +88,8 @@ export default function AnnouncementsPage() {
             hall: item.hall ?? item.barangayHall ?? "All Halls",
             priority, // lowercased
             status,   // 'ongoing' for today, 'upcoming' otherwise
-            attendees: Number(item.attendees ?? 0)
+            attendees: Number(item.attendees ?? 0),
+            imageUrl: item.imageUrl ?? item.image ?? item.coverUrl ?? null,
           }
         });
 
@@ -294,12 +297,9 @@ export default function AnnouncementsPage() {
                       </div>
                       
                       {announcement.imageUrl && (() => {
-                        const src = announcement.imageUrl.startsWith('http')
-                          ? announcement.imageUrl
-                          : `/api${announcement.imageUrl}`; // ensure it hits the API server
                         return (
                           <img
-                            src={src}
+                            src={`${API_BASE_URL}/${announcement.imageUrl}`}
                             alt={announcement.title}
                             className="w-full h-56 object-cover rounded-md mb-4"
                           />

@@ -354,6 +354,11 @@ export default function DocumentVerifyPage() {
                       <Label className="text-sm font-medium text-gray-500">Purpose</Label>
                       <p>{verificationResult.document.purpose}</p>
                     </div>
+
+                    <div>
+                      <Label className="text-sm font-medium text-gray-500">Fee</Label>
+                      <p>{verificationResult.document.fee}</p>
+                    </div>
                   </CardContent>
                 </Card>
 

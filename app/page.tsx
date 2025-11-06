@@ -130,7 +130,7 @@ const handleGoogleError = (error: string) => {
       icon: MessageSquare,
       color: "from-red-500 to-red-600",
       bgColor: "from-red-50 to-red-100",
-      link: "/resident/complaints/new",
+      link: "/",
       stats: "1,293 resolved this year",
     },
     {
@@ -139,7 +139,7 @@ const handleGoogleError = (error: string) => {
       icon: FileText,
       color: "from-blue-500 to-blue-600",
       bgColor: "from-blue-50 to-blue-100",
-      link: "/resident/documents/request",
+      link: "/",
       stats: "2,847 processed this month",
     },
     {
@@ -656,12 +656,12 @@ const handleGoogleError = (error: string) => {
               <h4 className="text-lg font-semibold mb-4">Services</h4>
               <ul className="space-y-2 text-blue-200">
                 <li>
-                  <Link href="/resident/complaints/new" className="hover:text-white transition-colors">
+                  <Link href="/" className="hover:text-white transition-colors">
                     File Complaints
                   </Link>
                 </li>
                 <li>
-                  <Link href="/resident/documents/request" className="hover:text-white transition-colors">
+                  <Link href="/" className="hover:text-white transition-colors">
                     Request Documents
                   </Link>
                 </li>
@@ -671,7 +671,7 @@ const handleGoogleError = (error: string) => {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/staff/ml-analytics" className="hover:text-white transition-colors">
+                  <Link href="/" className="hover:text-white transition-colors">
                     AI Analytics
                   </Link>
                 </li>

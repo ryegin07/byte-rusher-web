@@ -263,11 +263,6 @@ export function Complaints({ user, onNavigate }: ComplaintsProps) {
                         Mark resolved
                       </Button>
                     )}
-                    {!isStaff && complaint.status !== "Resolved" && (
-                      <Button variant="outline" size="sm">
-                        Add Update
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>

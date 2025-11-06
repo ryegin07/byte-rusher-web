@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, Plus, FileText, Clock, CheckCircle, QrCode, DollarSign, Calendar } from "lucide-react"
+import { Search, Plus, FileText, Clock, CheckCircle, QrCode, DollarSign, Calendar, XCircle } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 
 interface DocumentRequestProps {
@@ -14,127 +14,108 @@ interface DocumentRequestProps {
   onNavigate: (page: string) => void
 }
 
+type DocRow = {
+  id: string
+  rawId: string
+  type: string
+  resident: string
+  status: string
+  requestDate: string
+  completedDate: string | null
+  fee: number | null
+  purpose: string
+  qrCode: boolean
+}
+
 export function DocumentRequest({ user, onNavigate }: DocumentRequestProps) {
   const [searchTerm, setSearchTerm] = useState("")
+  const [documentRequests, setDocumentRequests] = useState<DocRow[]>([])
   const isStaff = user?.role === "Staff"
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await apiFetch('/submissions');
-        const docs = (Array.isArray(data) ? data : [])
-          .filter((s:any) => (s.submissionType||'').toLowerCase() === 'document')
-          .map((s:any) => {
-            const st = (s.status||'').toLowerCase();
-            const status =
-              st === 'pending' ? 'Processing' :
-              st === 'ready' ? 'Ready for Pickup' :
-              st === 'completed' ? 'Completed' :
-              s.status || 'Processing';
-            return {
-              id: s.documentReqId || s.id,
-              rawId: s.id,
-              type: s.documentType || 'Document',
-              resident: s.name || s.requestorName || 'Unknown',
-              status,
-              requestDate: (s.createdAt || '').slice(0,10),
-              completedDate: status === 'Completed' ? (s.updatedAt || '').slice(0,10) : null,
-              fee: s.fee ?? null,
-              purpose: s.purpose || s.reason || '',
-              qrCode: true,
-            };
-          });
-        if (mounted) setDocumentRequests(docs);
-      } catch {
-        /* ignore */
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  // --- helpers ---
+  const mapStatus = (stRaw: string) => {
+    const st = (stRaw || "").toLowerCase()
+    return st === "pending" ? "Processing"
+      : st === "ready" ? "Ready for Pickup"
+      : st === "completed" ? "Completed"
+      : st === "cancelled" ? "Cancelled"
+      : stRaw || "Processing"
+  }
 
+  const shape = (s: any): DocRow => {
+    const status = mapStatus(s.status)
+    return {
+      id: String(s.documentReqId || s.id),
+      rawId: String(s.id),
+      type: s.documentType || "Document",
+      resident: s.name || s.requestorName || "Unknown",
+      status,
+      requestDate: (s.createdAt || "").slice(0, 10),
+      completedDate: status === "Completed" ? (s.updatedAt || "").slice(0, 10) : null,
+      fee: s.fee ?? null,
+      purpose: s.purpose || s.reason || "",
+      qrCode: true,
+    }
+  }
+
+  const reloadDocs = async () => {
+    const data = await apiFetch("/submissions")
+    const docs = (Array.isArray(data) ? data : [])
+      .filter((s: any) => (s.submissionType || "").toLowerCase() === "document")
+      .map(shape)
+    setDocumentRequests(docs)
+  }
+
+  // --- effects ---
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        if (!mounted) return
+        await reloadDocs()
+      } catch {/* ignore */}
+    })()
+    return () => { mounted = false }
+  }, [])
+
+  // --- actions ---
   async function markReady(rawId: string) {
     try {
-      await apiFetch(`/submissions/${rawId}/status`, { method: 'POST', body: JSON.stringify({status: 'ready'}) });
-      // Reload
-      const data = await apiFetch('/submissions');
-      const docs = (Array.isArray(data) ? data : [])
-        .filter((s:any) => (s.submissionType||'').toLowerCase() === 'document')
-        .map((s:any) => {
-          const st = (s.status||'').toLowerCase();
-          const status =
-            st === 'pending' ? 'Processing' :
-            st === 'ready' ? 'Ready for Pickup' :
-            st === 'completed' ? 'Completed' :
-            s.status || 'Processing';
-          return {
-            id: s.documentReqId || s.id,
-            rawId: s.id,
-            type: s.documentType || 'Document',
-            resident: s.name || s.requestorName || 'Unknown',
-            status,
-            requestDate: (s.createdAt || '').slice(0,10),
-            completedDate: status === 'Completed' ? (s.updatedAt || '').slice(0,10) : null,
-            fee: s.fee ?? null,
-            purpose: s.purpose || s.reason || '',
-            qrCode: true,
-          };
-        });
-      setDocumentRequests(docs);
+      await apiFetch(`/submissions/${rawId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: "ready" }),
+      })
+      await reloadDocs()
+    } catch {}
+  }
+
+  async function cancelRequest(rawId: string) {
+    try {
+      await apiFetch(`/submissions/${rawId}/status`, {
+        method: "POST",
+        body: JSON.stringify({ status: "cancelled" }),
+      })
+      await reloadDocs()
     } catch {}
   }
 
   async function downloadQr(rawId: string) {
     try {
-      const res = await fetch(`/api/submissions/${rawId}/qr`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Document-${rawId}-QR.png`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const res = await fetch(`/api/submissions/${rawId}/qr`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `Document-${rawId}-QR.png`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
     } catch {}
   }
 
-  const [documentRequests, setDocumentRequests] = useState<any[]>([]);
-
-    
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const data = await apiFetch('/submissions');
-        const docs = (Array.isArray(data) ? data : [])
-          .filter((s:any) => (s.submissionType || '').toLowerCase() === 'document')
-          .map((s:any) => {
-            const st = (s.status || '').toLowerCase();
-            const status =
-              st === 'pending'   ? 'Processing' :
-              st === 'ready'     ? 'Ready for Pickup' :
-              st === 'completed' ? 'Completed' : (s.status || 'Processing');
-            return {
-              id: s.documentReqId || s.id,
-              rawId: s.id,
-              type: s.documentType || 'Document',
-              resident: s.name || s.requestorName || 'Unknown',
-              status,
-              requestDate: (s.createdAt || '').slice(0,10),
-              completedDate: status === 'Completed' ? (s.updatedAt || '').slice(0,10) : null,
-              fee: s.fee ?? null,
-              purpose: s.purpose || s.reason || '',
-              qrCode: true,
-            };
-          });
-        if (mounted) setDocumentRequests(docs);
-      } catch { /* silent */ }
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-const documentTypes = [
+  // --- UI helpers ---
+  const documentTypes = [
     { name: "Barangay Clearance", fee: 50, processingTime: "3-5 days" },
     { name: "Certificate of Residency", fee: 30, processingTime: "2-3 days" },
     { name: "Certificate of Indigency", fee: 20, processingTime: "3-5 days" },
@@ -152,6 +133,8 @@ const documentTypes = [
         return "bg-blue-100 text-blue-800"
       case "Completed":
         return "bg-green-100 text-green-800"
+      case "Cancelled":
+        return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -165,20 +148,106 @@ const documentTypes = [
         return <Clock className="h-4 w-4" />
       case "Under Review":
         return <FileText className="h-4 w-4" />
+      case "Cancelled":
+        return <XCircle className="h-4 w-4" />
       default:
         return <Clock className="h-4 w-4" />
     }
   }
 
-  const processingRequests = documentRequests.filter(r => (r.status||'').toLowerCase().includes('processing'));
-  const readyRequests = documentRequests.filter(r => (r.status||'').toLowerCase().includes('ready'));
-  const completedRequests = documentRequests.filter(r => (r.status||'').toLowerCase().includes('completed'));
+  // --- filters ---
+  const processingRequests = documentRequests.filter(r => (r.status || "").toLowerCase().includes("processing"))
+  const readyRequests = documentRequests.filter(r => (r.status || "").toLowerCase().includes("ready"))
+  const completedRequests = documentRequests.filter(r => (r.status || "").toLowerCase().includes("completed"))
+  const cancelledRequests = documentRequests.filter(r => (r.status || "").toLowerCase().includes("cancelled"))
 
-  const filteredRequests = documentRequests.filter(
-    (request) =>
-      request.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.resident.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      request.id.toLowerCase().includes(searchTerm.toLowerCase()),
+  const filteredRequests = documentRequests.filter((request) => {
+    const q = searchTerm.toLowerCase()
+    return (
+      (request.type || "").toLowerCase().includes(q) ||
+      (request.resident || "").toLowerCase().includes(q) ||
+      String(request.id || "").toLowerCase().includes(q)
+    )
+  })
+
+  // --- card renderer (to avoid duplicating JSX) ---
+  const RequestCard = (request: DocRow, { showReadyButton = false, showCancelButton = false }: { showReadyButton?: boolean; showCancelButton?: boolean } = {}) => (
+    <Card key={request.id} className="hover:shadow-md transition-shadow">
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <CardTitle className="text-lg mb-2">{request.type}</CardTitle>
+            <CardDescription className="mb-3">
+              ID: {request.id} • {request.resident}
+            </CardDescription>
+            <Badge className={getStatusColor(request.status)}>
+              {getStatusIcon(request.status)}
+              <span className="ml-1">{request.status}</span>
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4" />
+            <div>
+              <span className="font-medium">Requested:</span>
+              <p>{new Date(request.requestDate).toLocaleDateString()}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DollarSign className="h-4 w-4" />
+            <div>
+              <span className="font-medium">Fee:</span>
+              <p>₱{request.fee}</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <FileText className="h-4 w-4" />
+            <div>
+              <span className="font-medium">Purpose:</span>
+              <p>{request.purpose}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {request.qrCode && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center space-x-1 bg-transparent"
+              onClick={() => downloadQr(request.rawId)}
+            >
+              <QrCode className="h-3 w-3" />
+              <span>QR Code</span>
+            </Button>
+          )}
+
+          {showReadyButton && (
+            <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
+          )}
+
+          {showCancelButton && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => cancelRequest(request.rawId)}
+            >
+              Cancel
+            </Button>
+          )}
+
+          {isStaff && (
+            <>
+              <Button variant="outline" size="sm">Process</Button>
+              <Button variant="outline" size="sm">Generate QR</Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 
   return (
@@ -239,276 +308,31 @@ const documentTypes = [
               <TabsTrigger value="processing">Processing</TabsTrigger>
               <TabsTrigger value="ready">Ready</TabsTrigger>
               <TabsTrigger value="completed">Completed</TabsTrigger>
+              <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
             </TabsList>
 
             <TabsContent value="all" className="space-y-4">
-              {filteredRequests.map((request) => (
-                <Card key={request.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{request.type}</CardTitle>
-                        <CardDescription className="mb-3">
-                          ID: {request.id} • {request.resident}
-                        </CardDescription>
-                        <Badge className={getStatusColor(request.status)}>
-                          {getStatusIcon(request.status)}
-                          <span className="ml-1">{request.status}</span>
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Requested:</span>
-                          <p>{new Date(request.requestDate).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Fee:</span>
-                          <p>₱{request.fee}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Purpose:</span>
-                          <p>{request.purpose}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      {request.qrCode && (
-                        <Button variant="outline" size="sm" className="flex items-center space-x-1 bg-transparent" onClick={() => downloadQr(request.rawId)}>
-                          <QrCode className="h-3 w-3" />
-                          <span>QR Code</span>
-                        </Button>
-                      )}
-                      {isStaff && (
-                        <>
-                          <Button variant="outline" size="sm">
-                            Process
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Generate QR
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {filteredRequests.map((r) => RequestCard(r))}
             </TabsContent>
 
-            {/* Other tab contents would be similar but filtered by status */}
+            {/* Processing: includes Cancel button */}
             <TabsContent value="processing" className="space-y-4">
-              {processingRequests.map((request) => (
-                <Card key={request.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{request.type}</CardTitle>
-                        <CardDescription className="mb-3">
-                          ID: {request.id} • {request.resident}
-                        </CardDescription>
-                        <Badge className={getStatusColor(request.status)}>
-                          {getStatusIcon(request.status)}
-                          <span className="ml-1">{request.status}</span>
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Requested:</span>
-                          <p>{new Date(request.requestDate).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Fee:</span>
-                          <p>₱{request.fee}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Purpose:</span>
-                          <p>{request.purpose}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      {(request.status||"").toLowerCase().includes("processing") && (
-                        <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
-                      )}
-                      {true && (
-                        <Button variant="outline" size="sm" className="flex items-center space-x-1 bg-transparent" onClick={() => downloadQr(request.rawId)}>
-                          <QrCode className="h-3 w-3" />
-                          <span>QR Code</span>
-                        </Button>
-                      )}
-                      {isStaff && (
-                        <>
-                          <Button variant="outline" size="sm">
-                            Process
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Generate QR
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {processingRequests.map((r) =>
+                RequestCard(r, { showReadyButton: true, showCancelButton: true })
+              )}
             </TabsContent>
 
             <TabsContent value="ready" className="space-y-4">
-              {readyRequests.map((request) => (
-                <Card key={request.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{request.type}</CardTitle>
-                        <CardDescription className="mb-3">
-                          ID: {request.id} • {request.resident}
-                        </CardDescription>
-                        <Badge className={getStatusColor(request.status)}>
-                          {getStatusIcon(request.status)}
-                          <span className="ml-1">{request.status}</span>
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Requested:</span>
-                          <p>{new Date(request.requestDate).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Fee:</span>
-                          <p>₱{request.fee}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Purpose:</span>
-                          <p>{request.purpose}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      {(request.status||"").toLowerCase().includes("processing") && (
-                        <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
-                      )}
-                      {true && (
-                        <Button variant="outline" size="sm" className="flex items-center space-x-1 bg-transparent" onClick={() => downloadQr(request.rawId)}>
-                          <QrCode className="h-3 w-3" />
-                          <span>QR Code</span>
-                        </Button>
-                      )}
-                      {isStaff && (
-                        <>
-                          <Button variant="outline" size="sm">
-                            Process
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Generate QR
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              {readyRequests.map((r) => RequestCard(r))}
             </TabsContent>
 
             <TabsContent value="completed" className="space-y-4">
-              {completedRequests.map((request) => (
-                <Card key={request.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg mb-2">{request.type}</CardTitle>
-                        <CardDescription className="mb-3">
-                          ID: {request.id} • {request.resident}
-                        </CardDescription>
-                        <Badge className={getStatusColor(request.status)}>
-                          {getStatusIcon(request.status)}
-                          <span className="ml-1">{request.status}</span>
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Requested:</span>
-                          <p>{new Date(request.requestDate).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Fee:</span>
-                          <p>₱{request.fee}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <FileText className="h-4 w-4" />
-                        <div>
-                          <span className="font-medium">Purpose:</span>
-                          <p>{request.purpose}</p>
-                        </div>
-                      </div>
-                    </div>
+              {completedRequests.map((r) => RequestCard(r))}
+            </TabsContent>
 
-                    <div className="flex space-x-2">
-                      {(request.status||"").toLowerCase().includes("processing") && (
-                        <Button size="sm" onClick={() => markReady(request.rawId)}>Ready for pickup</Button>
-                      )}
-                      {true && (
-                        <Button variant="outline" size="sm" className="flex items-center space-x-1 bg-transparent" onClick={() => downloadQr(request.rawId)}>
-                          <QrCode className="h-3 w-3" />
-                          <span>QR Code</span>
-                        </Button>
-                      )}
-                      {isStaff && (
-                        <>
-                          <Button variant="outline" size="sm">
-                            Process
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Generate QR
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            {/* Cancelled tab: only cancelled */}
+            <TabsContent value="cancelled" className="space-y-4">
+              {cancelledRequests.map((r) => RequestCard(r))}
             </TabsContent>
           </Tabs>
         </div>

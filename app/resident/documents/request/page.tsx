@@ -1,5 +1,4 @@
 "use client"
-
 import FeedbackModal from "@/components/feedback-modal";
 
 import type React from "react"
@@ -16,8 +15,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, FileText, MapPin, Phone, CreditCard, Clock, Info } from "lucide-react"
 import Link from "next/link"
 import { createSubmission } from "@/lib/api";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 
 export default function DocumentRequestPage() {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+
   const [formData, setFormData] = useState({
     requestorName: "",
     email: "",
@@ -119,8 +121,22 @@ export default function DocumentRequestPage() {
     }
   }
 
-  if (submitted) {
-    return (
+  
+    
+  const openConfirm = (e: React.FormEvent) => {
+    e.preventDefault();
+    setConfirmOpen(true);
+  };
+  // Calls existing handleSubmit but bypasses the native event since it only uses preventDefault()
+  const handleConfirmSubmit = async () => {
+    try {
+      await handleSubmit({ preventDefault: () => {} } as unknown as React.FormEvent);
+    } finally {
+      setConfirmOpen(false);
+    }
+  };
+if (submitted) {
+return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-2xl mx-auto px-4">
           <Card>
@@ -177,7 +193,7 @@ export default function DocumentRequestPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={openConfirm} className="space-y-8">
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Main Form */}
             <div className="lg:col-span-2 space-y-6">
@@ -490,6 +506,25 @@ export default function DocumentRequestPage() {
             </Button>
           </div>
         </form>
+
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Submission</DialogTitle>
+              <DialogDescription>
+                By submitting, I confirm that the details provided are true and correct.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleConfirmSubmit} disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "Submit"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

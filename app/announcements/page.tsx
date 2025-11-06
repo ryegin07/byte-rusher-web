@@ -293,6 +293,18 @@ export default function AnnouncementsPage() {
                         </Badge>
                       </div>
                       
+                      {announcement.imageUrl && (() => {
+                        const src = announcement.imageUrl.startsWith('http')
+                          ? announcement.imageUrl
+                          : `/api${announcement.imageUrl}`; // ensure it hits the API server
+                        return (
+                          <img
+                            src={src}
+                            alt={announcement.title}
+                            className="w-full h-56 object-cover rounded-md mb-4"
+                          />
+                        );
+                      })()}
                       <p className="text-gray-600 mb-4 leading-relaxed">{announcement.content}</p>
                       
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">

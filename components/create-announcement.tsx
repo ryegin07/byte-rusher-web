@@ -51,6 +51,7 @@ type FormData = {
   publishDate?: Date;
   publishTime: string;
   tags: string[];
+  imageUrl?: string;
 };
 
 type AnnouncementDTO = {
@@ -112,12 +113,40 @@ export function CreateAnnouncement({ user }: CreateAnnouncementProps) {
     publishDate: undefined,
     publishTime: "",
     tags: [],
+    imageUrl: '',
   });
 
   const [newTag, setNewTag] = useState<string>("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
+  
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+  const handleImageUpload = async () => {
+    if (!imageFile) return;
+    setIsUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', imageFile);
+      // Bypass apiFetch so Content-Type is NOT forced to application/json
+      const res = await fetch(`/api/announcements/upload`, {
+        method: 'POST',
+        body: fd,
+        credentials: 'include' as any,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      if (!data?.url) throw new Error('Upload did not return a URL');
+      setFormData((f:any)=> ({...f, imageUrl: data.url}));
+      toast({title: 'Image uploaded', description: 'Linked to this announcement.'});
+    } catch (e:any) {
+      toast({title: 'Upload failed', description: e?.message || 'Please try again', variant: 'destructive'});
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+const [isPublishing, setIsPublishing] = useState(false);
 
   // Drafts state
   const [drafts, setDrafts] = useState<DraftOption[]>([]);
@@ -168,6 +197,7 @@ export function CreateAnnouncement({ user }: CreateAnnouncementProps) {
     eventTime: formData.eventTime || undefined,
     expectedAttendees: formData.expectedAttendees || undefined,
     tags: formData.tags,
+    imageUrl: formData.imageUrl || undefined,
     createdByName: user?.name,
     createdByEmail: user?.email,
   });
@@ -211,6 +241,7 @@ export function CreateAnnouncement({ user }: CreateAnnouncementProps) {
       publishDate: undefined,
       publishTime: "",
       tags: [],
+    imageUrl: '',
     });
     setEditingId(null);
   };
@@ -452,6 +483,18 @@ export function CreateAnnouncement({ user }: CreateAnnouncementProps) {
                 <Label htmlFor="content">Content *</Label>
                 <Textarea id="content" placeholder="Write your announcement content here..." value={formData.content}
                   onChange={e => handleInputChange("content", e.target.value)} className="mt-1 min-h-[120px]" />
+
+              <div className="space-y-2 mt-2">
+                <Label htmlFor="image">Announcement Image (optional)</Label>
+                <input id="image" type="file" accept="image/*" onChange={(e)=> setImageFile(e.target.files?.[0] || null)} />
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="secondary" onClick={handleImageUpload} disabled={isUploadingImage || !imageFile}>
+                    {isUploadingImage ? 'Uploading…' : (formData.imageUrl ? 'Re-upload Image' : 'Upload Image')}
+                  </Button>
+                  {formData.imageUrl && <span className="text-sm text-muted-foreground truncate">Linked: {formData.imageUrl}</span>}
+                </div>
+              </div>
+
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
